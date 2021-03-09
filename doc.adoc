@@ -372,6 +372,35 @@ instclient install fbclient
 Утилита instclient не копирует в системный каталог никаких файлов кроме `fbclient.dll`.
 ====
 
+=== Установка embedded версии
+
+Embedded версия теперь требует большего количества файлов. Минимальная структура файлов и каталогов для Firebird 4.0
+embedded следующая:
+
+* intl
+  - fbintl.conf
+  - fbintl.dll
+* plugins
+  - engine13.dll
+* firebird.conf
+* icudt63l.dat
+* fbclient.dll
+* ib_util.dll
+* icudt63.dll
+* icuin63.dll
+* icuuc63.dll
+* msvcp140.dll
+* vcruntime140.dll
+* firebird.msg
+
+При необходимости вы также можете скопировать исполняемые файлы утилит `fbsvcmgr.exe`, `fbtracemgr.exe`,
+`gbak.exe`, `gfix.exe`, `gstat.exe`, `isql.exe`, `nbackup.exe`.
+
+Для тех кто мигрирует с Firebird 2.5 следует учитывать 2 момента:
+
+* вместо единого файла
+
+
 == Преобразование базы данных к новому формату
 
 Базы данных Firebird 4.0 имеют ODS 13.0. Для того, чтобы Firebird 4.0 мог работать с вашей базой данных её необходимо привести к родной ODS.
