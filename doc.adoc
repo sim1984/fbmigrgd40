@@ -564,7 +564,7 @@ gbak -b -g -V -user SYSDBA -pas 8kej712 -se server/3053:service_mgr my_db d:\fb3
 
 [listing,subs=+quotes]
 ----
-gbak -c -V -user <username> -pas <password> -se <service> <backup_file> <database_file> -Y <log_file>
+gbak -c -v -user <username> -pas <password> -se <service> <backup_file> <database_file> -Y <log_file>
 ----
 
 [example]
@@ -572,7 +572,7 @@ gbak -c -V -user <username> -pas <password> -se <service> <backup_file> <databas
 ====
 [listing,subs=+quotes]
 ----
-gbak -c -V -user SYSDBA -pas 8kej712 -se server/3054:service_mgr d:\fb30_backup\my_db.fbk d:\fb40_data\my_db.fdb -Y d:\fb40_data\restore.log
+gbak -c -v -user SYSDBA -pas 8kej712 -se server/3054:service_mgr d:\fb30_backup\my_db.fbk d:\fb40_data\my_db.fdb -Y d:\fb40_data\restore.log
 ----
 ====
 
@@ -585,3 +585,33 @@ gbak -c -V -user SYSDBA -pas 8kej712 -se server/3054:service_mgr d:\fb30_backup\
 После восстановления внимательно изучите `restore.log` на предмет ошибок. Большая часть из них может происходить по причине
 несовместимостей на уровне языка SQL описанных выше. Если вы что-то не исправили, то придётся возвращаться к правке PSQL
 объектов в исходной базе данных.
+
+
+==== Предупреждения об отсутствии UDF
+
+После восстановления в файле `restore.log` вы можете увидеть следующие предупреждения
+
+[listing,subs=+quotes]
+----
+gbak: WARNING:function UDF_FRAC is not defined
+gbak: WARNING: module name or entrypoint could not be found
+----
+
+Это означает, что у вас есть UDF, которые объявлены в базе данных, но их библиотека отсутствует.
+Выше уже было описано, что надо делать в этом случае. Но это в основном касалось ваших UDF библиотек.
+Однако если вы использовали UDF из комплекта поставляемого с Firebird, а именно ib_udf и fbudf, то вы можете
+заменить их на встроенные функции или на безопасные аналоги UDR расположенные в библиотеке `udf_compat.dll`.
+Для этого необходимо запустить SQL скрипт миграции, поставляемый в комплекте с Firebird 4.0, который
+расположен в `misc/upgrade/v4.0/udf_replace.sql`. Это делается следующей командой
+
+[listing,subs=+quotes]
+----
+isql -user sysdba -pas masterkey -i udf_replace.sql {your-database}
+----
+
+[WARINING]
+.Предупреждение
+====
+Этот сценарий не повлияет на объявления UDF из сторонних библиотек!
+====
+
