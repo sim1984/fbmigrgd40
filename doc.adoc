@@ -633,14 +633,177 @@ Firebird 3.0 производится значительно проще, поэ�
 
 === Перенос списка пользователей из Firebird 3.0
 
-Как я уже говорил, перенос пользователей из Firebird 3.0 в Firebird 4.0 достаточно тривиален. Для этого необходимо
-просто преобразовать базу данных безопасности `security3.fdb` в новую ODS с помощью инструмента _gbak_.
+Самый простой способ перенести пользователей из базы безопасности Firebird 3.0 в базу данных безопасности
+Firebird 4.0 заключается резервной копии `security3.fdb` с помощью _gbak_ и восстановлении её в Firebird 4.0.
+Однако учтите, что в этом случае вы потеряете некоторые новые возможности. Мы пойдём более сложным способом:
 
-Сначала необходимо сделать копию базы данных безопасности из Firebird 3.0.
-
+1. Сделайте резервную копию базы данных безопасности на Firebird 3.0
++
 [listing,subs=+quotes]
 ----
-c:\Firebird\3.0>gbak -b -g -v -user SYSDBA security.db d:\fb30_backup\security.fbk
+c:\Firebird\3.0>gbak -b -g -user SYSDBA security.db d:\fb30_backup\security.fbk
 ----
 
-Теперь можно восстановить её на Firebird 4.0
+2. Восстановите резервную копию на Firebird 4.0 под новым именем
++
+[listing,subs=+quotes]
+----
+c:\Firebird\4.0>gbak -с -user SYSDBA -pas 8kej712 -se localhost/3054:service_mgr d:\fb30_backup\security.fbk d:\fb40_data\security_30.fdb
+----
+
+3. Сохраните следующий скрипт для переноса пользователей в файл `copy_user.sql`
++
+[listing,subs=+quotes]
+----
+set term ^;
+
+EXECUTE BLOCK
+AS
+  -- замените на параметры вашей копии БД безопасности
+  DECLARE SRC_SEC_DB     VARCHAR(255) = 'd:\fb40_data\security_30.fdb';
+  DECLARE SRC_SEC_USER   VARCHAR(63) = 'SYSDBA';
+  ---------------------------------------------------
+  DECLARE PLG$USER_NAME  SEC$USER_NAME;
+  DECLARE PLG$VERIFIER   VARCHAR(128) CHARACTER SET OCTETS;
+  DECLARE PLG$SALT       VARCHAR(32) CHARACTER SET OCTETS;
+  DECLARE PLG$COMMENT    BLOB SUB_TYPE TEXT CHARACTER SET UTF8;
+  DECLARE PLG$FIRST      SEC$NAME_PART;
+  DECLARE PLG$MIDDLE     SEC$NAME_PART;
+  DECLARE PLG$LAST       SEC$NAME_PART;
+  DECLARE PLG$ATTRIBUTES BLOB SUB_TYPE TEXT CHARACTER SET UTF8;
+  DECLARE PLG$ACTIVE     BOOLEAN;
+  DECLARE PLG$GROUP_NAME SEC$USER_NAME;
+  DECLARE PLG$UID        PLG$ID;
+  DECLARE PLG$GID        PLG$ID;
+  DECLARE PLG$PASSWD     PLG$PASSWD;
+BEGIN
+  -- перемещаем пользователей из плагина SRP
+  FOR EXECUTE STATEMENT Q'!
+      SELECT
+          PLG$USER_NAME,
+          PLG$VERIFIER,
+          PLG$SALT,
+          PLG$COMMENT,
+          PLG$FIRST,
+          PLG$MIDDLE,
+          PLG$LAST,
+          PLG$ATTRIBUTES,
+          PLG$ACTIVE
+      FROM PLG$SRP
+      WHERE PLG$USER_NAME <> 'SYSDBA'
+!'
+          ON EXTERNAL :SRC_SEC_DB
+          AS USER :SRC_SEC_USER
+          INTO :PLG$USER_NAME,
+               :PLG$VERIFIER,
+               :PLG$SALT,
+               :PLG$COMMENT,
+               :PLG$FIRST,
+               :PLG$MIDDLE,
+               :PLG$LAST,
+               :PLG$ATTRIBUTES,
+               :PLG$ACTIVE
+  DO
+  BEGIN
+    INSERT INTO PLG$SRP (
+        PLG$USER_NAME,
+        PLG$VERIFIER,
+        PLG$SALT,
+        PLG$COMMENT,
+        PLG$FIRST,
+        PLG$MIDDLE,
+        PLG$LAST,
+        PLG$ATTRIBUTES,
+        PLG$ACTIVE)
+    VALUES (
+        :PLG$USER_NAME,
+        :PLG$VERIFIER,
+        :PLG$SALT,
+        :PLG$COMMENT,
+        :PLG$FIRST,
+        :PLG$MIDDLE,
+        :PLG$LAST,
+        :PLG$ATTRIBUTES,
+        :PLG$ACTIVE);
+  END
+  -- перемещаем пользователей из плагина Legacy_UserManager
+  FOR EXECUTE STATEMENT Q'!
+      SELECT
+          PLG$USER_NAME,
+          PLG$GROUP_NAME,
+          PLG$UID,
+          PLG$GID,
+          PLG$PASSWD,
+          PLG$COMMENT,
+          PLG$FIRST_NAME,
+          PLG$MIDDLE_NAME,
+          PLG$LAST_NAME
+      FROM PLG$USERS
+      WHERE PLG$USER_NAME <> 'SYSDBA'
+!'
+          ON EXTERNAL :SRC_SEC_DB
+          AS USER :SRC_SEC_USER
+          INTO :PLG$USER_NAME,
+               :PLG$GROUP_NAME,
+               :PLG$UID,
+               :PLG$GID,
+               :PLG$PASSWD,
+               :PLG$COMMENT,
+               :PLG$FIRST,
+               :PLG$MIDDLE,
+               :PLG$LAST
+  DO
+  BEGIN
+    INSERT INTO PLG$USERS (
+        PLG$USER_NAME,
+        PLG$GROUP_NAME,
+        PLG$UID,
+        PLG$GID,
+        PLG$PASSWD,
+        PLG$COMMENT,
+        PLG$FIRST_NAME,
+        PLG$MIDDLE_NAME,
+        PLG$LAST_NAME)
+    VALUES (
+        :PLG$USER_NAME,
+        :PLG$GROUP_NAME,
+        :PLG$UID,
+        :PLG$GID,
+        :PLG$PASSWD,
+        :PLG$COMMENT,
+        :PLG$FIRST,
+        :PLG$MIDDLE,
+        :PLG$LAST);
+  END
+END^
+
+set term ;^
+
+commit;
+
+exit;
+----
++
+[IMPORTANT]
+.Важно
+====
+Не забудьте заменить значение переменной `SRC_SEC_DB` на путь к копии вашей БД безопасности.
+====
++
+[NOTE]
+.Замечение
+====
+Мы исключили копию пользователя SYSDBA, поскольку инициализировали его при установке.
+====
+
+4. Выполните скрипт на Firebird 4.0 подключившись к БД безопасности в embedded режиме
++
+[listing,subs=+quotes]
+----
+c:\Firebird\4.0>isql -i "d:\fb40_data\copy_users.sql" -u SYSDBA -ch UTF8 security.db
+----
+
+Поздравляем ваши пользователи перенесены с сохранением всех атрибутов и паролей.
+
+=== Перенос списка пользователей из Firebird 2.5
+
