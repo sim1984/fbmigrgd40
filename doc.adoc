@@ -807,12 +807,179 @@ c:\Firebird\4.0>isql -i "d:\fb40_data\copy_users.sql" -u SYSDBA -ch UTF8 securit
 === Перенос списка пользователей из Firebird 2.5
 
 Перенос пользователей из Firebird 2.5 более сложен.
-В Firebird 3.0 ввели новый способ аутентификации SRP - Secure Remote Password Protocol. Старый способ аутентификации также
-доступен, но выключен по умолчанию поскольку считается недостаточно безопасным. В Release Notes 3.0 описан способ переноса пользователей
-из Legacy_UserManager в SRP, однако в этом случае вы не сможете подключаться через fbclient версии 2.5. Кроме того,
-перенести пароли из Legacy_UserManager в SRP невозможно. Предлагаемый скрипт перенесёт список пользователей, но пароли будут сгенированы случайные.
-Если вы хотите восстановить прежние пароли, то это придётся делать вручную. Я написал альтернативный скрипт,
-который позволяет перенести пользователей из `security2.fdb` в `security3.fdb` в плагин Legacy_UserManager. Здесь я опишу оба варианта.
+В Firebird 3.0 ввели новый способ аутентификации SRP - Secure Remote Password Protocol.
+Старый способ аутентификации также доступен, но выключен по умолчанию поскольку считается недостаточно безопасным.
+В Release Notes 3.0 описан способ переноса пользователей из Legacy_UserManager в SRP, однако в этом случае вы не сможете подключаться через fbclient версии 2.5. Кроме того, перенести пароли из Legacy_UserManager в SRP невозможно.
+Предлагаемый скрипт перенесёт список пользователей, но пароли будут сгенированы случайные.
+Если вы хотите восстановить прежние пароли, то это придётся делать вручную.
+Я написал альтернативный скрипт, который позволяет перенести пользователей из `security2.fdb` в `security3.fdb` в плагин Legacy_UserManager.
+Здесь я опишу оба варианта.
 
 ==== Копирование списка пользователей в плагин SRP
 
+Из-за новой модели аутентификации в Firebird 3 обновление базы данных безопасности версии 2.5 (security2.fdb) напрямую для использования в Firebird 4 невозможно.
+Однако существует процедура обновления, позволяющая сохранить данные учетной записи пользователя - имя пользователя, имя и т. Д., Но не пароли - из базы данных security2.fdb, которая использовалась на серверах версии 2.x.
+
+Процедура требует запуска сценария `security_database.sql`, который находится в каталоге `misc/upgrade` вашей установки Firebird 3. Эти инструкции предполагают, что у вас есть временная копия этого сценария в том же каталоге, что и исполняемый файл isql.
+
+[NOTE]
+.Замечание
+====
+* В Firebird 4.0 файл сценария обновления БД безопасности `security_database.sql` отсутствует в каталоге `misc/upgrade`, поэтому вам необходимо скачать
+zip архив с дистрибутивом Firebird 3.0.
+
+* В приведенных ниже командах замените _masterkey_ фактическим паролем SYSDBA для вашего сервера, если это необходимо.
+====
+
+1. Сделайте резервную копию БД безопасности `security2.fdb` на Firebird 2.5
++
+[listing,subs=+quotes]
+----
+c:\Firebird\2.5>bin\gbak -b -g -user SYSDBA -password masterkey -se service_mgr c:\Firebird\2.5\security2.fdb d:
+\fb25_backup\security2.fbk
+----
+
+2. Разверните резервную копию на Firebird 4.0
++
+[listing,subs=+quotes]
+----
+c:\Firebird\4.0>gbak -c -user SYSDBA -password masterkey -se localhost/3054:service_mgr d:\fbdata\4.0\security2.fbk d:\f
+bdata\4.0\security2db.fdb -v
+----
+
+3. На сервере Firebird 4.0 перейдите в каталог, в котором находится утилита isql, и запустите сценарий обновления:
++
+[listing,subs=+quotes]
+----
+isql -user sysdba -pas masterkey -i security_database.sql
+{host/path}security2db.fdb
+----
++
+`security2db.fdb` - это просто пример имени базы данных: это может быть любое предпочтительное имя.
++
+
+4. Процедура генерирует новые случайные пароли и затем выводит их на экран. Скопируйте вывод и уведомите пользователей об их новых паролях.
+
+
+==== Копирование списка пользователей в плагин Legacy_UserManager
+
+В отличие от предыдущего варианта, данный скрипт сохранит ваши исходные пароли.
+Однако, мы советуем вам в будущем всё равно перейти на плагин Srp.
+
+1. Сделайте резервную копию БД безопасности `security2.fdb` на Firebird 2.5
++
+[listing,subs=+quotes]
+----
+c:\Firebird\2.5>bin\gbak -b -g -user SYSDBA -password masterkey -se service_mgr c:\Firebird\2.5\security2.fdb d:
+\fb25_backup\security2.fbk
+----
+
+2. Разверните резервную копию на Firebird 4.0
++
+[listing,subs=+quotes]
+----
+c:\Firebird\4.0>gbak -c -user SYSDBA -password masterkey -se localhost/3054:service_mgr d:\fbdata\4.0\security2.fbk d:\f
+bdata\4.0\security2db.fdb -v
+----
+
+3. Сохраните следующий скрипт для переноса пользователей в файл `copy_security2.sql`
+
++
+[listing,subs=+quotes]
+----
+set term ^;
+
+EXECUTE BLOCK
+AS
+  -- замените на параметры вашей копии БД безопасности
+  DECLARE SRC_SEC_DB     VARCHAR(255) = 'd:\fbdata\4.0\security2.fdb';
+  DECLARE SRC_SEC_USER   VARCHAR(63) = 'SYSDBA';
+  ---------------------------------------------------
+  DECLARE PLG$USER_NAME  SEC$USER_NAME;
+  DECLARE PLG$COMMENT    BLOB SUB_TYPE TEXT CHARACTER SET UTF8;
+  DECLARE PLG$FIRST      SEC$NAME_PART;
+  DECLARE PLG$MIDDLE     SEC$NAME_PART;
+  DECLARE PLG$LAST       SEC$NAME_PART;
+  DECLARE PLG$GROUP_NAME SEC$USER_NAME;
+  DECLARE PLG$UID        INT;
+  DECLARE PLG$GID        INT;
+  DECLARE PLG$PASSWD     VARBINARY(64);
+BEGIN
+  FOR EXECUTE STATEMENT q'!
+      SELECT
+          RDB$USER_NAME,
+          RDB$GROUP_NAME,
+          RDB$UID,
+          RDB$GID,
+          RDB$PASSWD,
+          RDB$COMMENT,
+          RDB$FIRST_NAME,
+          RDB$MIDDLE_NAME,
+          RDB$LAST_NAME
+      FROM RDB$USERS
+      WHERE RDB$USER_NAME <> 'SYSDBA'
+!'
+      ON EXTERNAL :SRC_SEC_DB
+      AS USER :SRC_SEC_USER
+      INTO
+          :PLG$USER_NAME,
+          :PLG$GROUP_NAME,
+          :PLG$UID,
+          :PLG$GID,
+          :PLG$PASSWD,
+          :PLG$COMMENT,
+          :PLG$FIRST,
+          :PLG$MIDDLE,
+          :PLG$LAST
+  DO
+  BEGIN
+    INSERT INTO PLG$USERS (
+        PLG$USER_NAME,
+        PLG$GROUP_NAME,
+        PLG$UID,
+        PLG$GID,
+        PLG$PASSWD,
+        PLG$COMMENT,
+        PLG$FIRST_NAME,
+        PLG$MIDDLE_NAME,
+        PLG$LAST_NAME)
+    VALUES (
+        :PLG$USER_NAME,
+        :PLG$GROUP_NAME,
+        :PLG$UID,
+        :PLG$GID,
+        :PLG$PASSWD,
+        :PLG$COMMENT,
+        :PLG$FIRST,
+        :PLG$MIDDLE,
+        :PLG$LAST);
+  END
+END^
+
+set term ;^
+
+commit;
+
+exit;
+----
++
+[IMPORTANT]
+.Важно
+====
+Не забудьте заменить значение переменной `SRC_SEC_DB` на путь к копии вашей БД безопасности.
+====
++
+[NOTE]
+.Замечение
+====
+Мы исключили копию пользователя SYSDBA, поскольку инициализировали его при установке.
+====
+
+4. Выполните скрипт на Firebird 4.0 подключившись к БД безопасности в embedded режиме
++
+[listing,subs=+quotes]
+----
+c:\Firebird\4.0>isql -i "d:\fb40_data\copy_security2.sql" -u SYSDBA -ch UTF8 security.db
+----
+
+Поздравляем ваши пользователи перенесены с сохранением всех атрибутов и паролей.
