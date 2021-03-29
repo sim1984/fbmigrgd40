@@ -431,5 +431,52 @@ REVOKE [DEFAULT] role_name FROM [USER user_name | ROLE role_name] [WITH ADMIN OP
 пользователя (владельца). Эти привилегии будут дополнены привилегиями выданные самому
 PSQL модулю с помощью оператора GRANT.
 
+```sql
+CREATE TABLE t (i INTEGER);
 
+SET TERM ^;
+
+CREATE PROCEDURE p (i INTEGER)
+SQL SECURITY DEFINER
+AS
+BEGIN
+  INSERT INTO t VALUES (:i);
+END^
+
+SET TERM ;^
+
+GRANT EXECUTE ON PROCEDURE p TO USER joe;
+
+COMMIT;
+
+CONNECT 'inet://localhost:test' USER joe PASSWORD 'pas';
+
+EXECUTE PROCEDURE p(1);
+```
+
+В данном случае пользователю JOE достаточно только привилегии EXECUTE на процедуру
+p. Если бы процедура была создана с привилегиями вызывающего пользователя (опция
+INVOKER), то ещё потребовалось бы выдать привилегию INSERT для процедуры p на таблицу t.
+
+### Встроенные криптографические функции
+
+В Firebird 4.0 добавлено множество встроенные криптографических функций. Вы можете использовать их для шифрования
+значений отдельных столбцов в таблице или других задач.
+
+```sql
+select encrypt('897897' using sober128 key 'AbcdAbcdAbcdAbcd' iv '01234567')
+from rdb$database;
+```
+
+### Поддержка шифрования утилитой gbak
+
+Поддержка шифрования базы данных было введено ещё в Firebird 3.0, однако шифровать/дешифроать фалы резервной копии сделанной утилитой gbak можно было только внешними инструментами. В Firebird 4.0 добавлена поддержка шифрования резервной копии с помомщью того же плагина шифрования, что используется при шифровании базы данных.
+
+Пример создания шифрованной резервной копии
+
+```
+gbak -b -keyholder MyKeyHolderPlugin host:dbname backup_file_name
+```
+
+Резервная копия шифруется с помощью того же самого плагина шифрования, с которым зашифрована база данных.
 
