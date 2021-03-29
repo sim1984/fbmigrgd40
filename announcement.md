@@ -480,3 +480,11 @@ gbak -b -keyholder MyKeyHolderPlugin host:dbname backup_file_name
 
 Резервная копия шифруется с помощью того же самого плагина шифрования, с которым зашифрована база данных.
 
+Пример восстановления резервной копии
+
+```
+gbak -c -keyholder MyKeyHolderPlugin backup_file_name host:dbname
+```
+
+Вы также можете указать плагин шифрования отличный от умолчательного.
+
