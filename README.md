@@ -2,7 +2,6 @@
 
 * [В формате HTML](https://github.com/sim1984/fbmigrgd40/releases/download/1.0/doc.html)
 * [В формате PDF](https://github.com/sim1984/fbmigrgd40/releases/download/1.0/doc.pdf)
-* [В формате DOCX](https://github.com/sim1984/fbmigrgd40/releases/download/1.0/Firebird.4.0.docx)
 
 SQL скрипты для переноса списка пользователей:
 
