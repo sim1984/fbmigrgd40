@@ -1,7 +1,9 @@
 # Краткое руководство по миграции на Firebird 4.0
 
-* [В формате HTML](https://github.com/sim1984/fbmigrgd40/releases/download/1.0/doc.html)
-* [В формате PDF](https://github.com/sim1984/fbmigrgd40/releases/download/1.0/doc.pdf)
+* [В формате HTML (RUS)](https://github.com/sim1984/fbmigrgd40/releases/download/1.0/doc.rus.html)
+* [В формате PDF (RUS)](https://github.com/sim1984/fbmigrgd40/releases/download/1.0/doc.rus.pdf)
+* [В формате HTML (ENG)](https://github.com/sim1984/fbmigrgd40/releases/download/1.0/doc.eng.html)
+* [В формате PDF (ENG)](https://github.com/sim1984/fbmigrgd40/releases/download/1.0/doc.eng.pdf)
 
 SQL скрипты для переноса списка пользователей:
 
