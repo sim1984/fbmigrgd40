@@ -2,8 +2,6 @@
 
 * [В формате HTML (RUS)](https://github.com/sim1984/fbmigrgd40/releases/download/1.0/doc.rus.html)
 * [В формате PDF (RUS)](https://github.com/sim1984/fbmigrgd40/releases/download/1.0/doc.rus.pdf)
-* [В формате HTML (ENG)](https://github.com/sim1984/fbmigrgd40/releases/download/1.0/doc.eng.html)
-* [В формате PDF (ENG)](https://github.com/sim1984/fbmigrgd40/releases/download/1.0/doc.eng.pdf)
 
 SQL скрипты для переноса списка пользователей:
 
